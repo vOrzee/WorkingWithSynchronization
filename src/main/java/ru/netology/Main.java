@@ -6,8 +6,6 @@ import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-
 
 public class Main {
 
@@ -19,7 +17,7 @@ public class Main {
 
     public static final int defaultContSymbolsInMask = 100;
 
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) {
 
         ExecutorService threadPool = Executors.newFixedThreadPool(countRepeat);
 
