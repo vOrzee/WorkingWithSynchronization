@@ -1,9 +1,6 @@
 package ru.netology;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -21,6 +18,10 @@ public class Main {
 
         ExecutorService threadPool = Executors.newFixedThreadPool(countRepeat);
 
+        Thread threadObserver = getThreadObserver();
+
+        Pair<Integer, Integer> finalLeader;
+
         for (int i = 0; i < countRepeat; i++) {
             threadPool.submit(() -> {
                 String generatedString = generateRoute(defaultMask, defaultContSymbolsInMask);
@@ -33,27 +34,57 @@ public class Main {
                 }
                 synchronized (sizeToFreq) {
                     sizeToFreq.put(countSearchedCharacters, sizeToFreq.getOrDefault(countSearchedCharacters, 0) + 1);
+                    sizeToFreq.notify();
                 }
             });
         }
 
         threadPool.shutdown();
+        threadObserver.interrupt();
 
-        int maxFrequency = Collections.max(sizeToFreq.values());
-        int mostUsed = 0;
-        for (int i : sizeToFreq.keySet()) {
-            if (sizeToFreq.get(i) == maxFrequency) {
-                mostUsed = i;
-            }
-        }
-
-        System.out.println("Самое частое количество повторений " + mostUsed + " (встретилось " + maxFrequency + " раз)");
-        int finalMostUsed = mostUsed;
+        finalLeader = maxInMap(sizeToFreq);
+        System.out.println("Самое частое количество повторений " + finalLeader.getLeft() + " (встретилось " + finalLeader.getRight() + " раз)");
         sizeToFreq.forEach((frequency, count) -> {
-            if (frequency != finalMostUsed) {
+            if (frequency != finalLeader.getLeft().intValue()) {
                 System.out.println("- " + frequency + " (" + count + " раз)");
             }
         });
+    }
+
+    private static Thread getThreadObserver() {
+        Thread threadObserver = new Thread(() -> {
+            Pair<Integer, Integer> currentLeader = new Pair<>(0, 0);
+            Pair<Integer, Integer> newValue;
+            while (!Thread.interrupted()) {
+                synchronized (sizeToFreq) {
+                    try {
+                        sizeToFreq.wait();
+                    } catch (InterruptedException e) {
+                        break;
+                    }
+                    newValue = maxInMap(sizeToFreq);
+                }
+                if (!Objects.equals(currentLeader.getLeft(), newValue.getLeft()) || !Objects.equals(currentLeader.getRight(), newValue.getRight())) {
+                    currentLeader.setLeft(newValue.getLeft());
+                    currentLeader.setRight(newValue.getRight());
+                    System.out.println("Текущий лидер: " + currentLeader.getLeft() + "\nКоличество повторений: " + currentLeader.getRight() + "\n");
+                }
+            }
+        });
+
+        threadObserver.start();
+        return threadObserver;
+    }
+
+    public static Pair<Integer, Integer> maxInMap(Map<Integer, Integer> map) {
+        Pair<Integer, Integer> result = new Pair<>(0, 0);
+        result.setRight(Collections.max(map.values())); // maxFrequency
+        for (int i : map.keySet()) {
+            if (Objects.equals(map.get(i), result.getRight())) {
+                result.setLeft(i); // mostUsed
+            }
+        }
+        return result;
     }
 
     public static String generateRoute(String letters, int length) {
